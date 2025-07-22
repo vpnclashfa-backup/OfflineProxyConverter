@@ -4,6 +4,7 @@
   "description": "A local desktop application for Subconverter",
   "main": "build/main.js",
   "private": true,
+  "homepage": ".",
   "scripts": {
     "start": "electron .",
     "react-start": "react-scripts start",
