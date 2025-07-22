@@ -40,6 +40,7 @@
   "build": {
     "appId": "com.yourcompany.subconverterdesktop",
     "productName": "Subconverter Desktop",
+    "main": "main.js",
     "win": {
       "target": "zip",
       "icon": "icon.png"
