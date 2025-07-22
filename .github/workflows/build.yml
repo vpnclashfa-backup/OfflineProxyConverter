@@ -1,42 +1,46 @@
 # .github/workflows/build.yml
-name: Build and Release Subconverter Desktop
+name: ساخت و انتشار Subconverter Desktop
 
 on:
   schedule:
-    - cron: '0 0 */3 * *'       # Every 3 days at midnight UTC
-  workflow_dispatch:           # Manual trigger
+    - cron: '0 0 */3 * *'       # هر ۳ روز یکبار نیمه‌شب UTC اجرا شود
+  workflow_dispatch:           # اجرای دستی
   push:
     tags:
-      - 'v*.*.*'               # On push of tags like vX.Y.Z
+      - 'v*.*.*'               # روی تگ‌هایی مثل vX.Y.Z اجرا شود
 
 jobs:
   build-windows:
     runs-on: windows-latest
 
     steps:
-    - name: Checkout code
+    - name: دریافت کد پروژه
       uses: actions/checkout@v4
       with:
         fetch-depth: 0
 
-    - name: Setup Node.js
+    - name: راه‌اندازی Node.js نسخه 20
       uses: actions/setup-node@v4
       with:
         node-version: '20'
 
-    - name: Get latest subconverter release info
+    - name: دریافت آخرین نسخه موتور subconverter
       id: get_subconverter_release
       run: |
+        Write-Host "دریافت اطلاعات آخرین نسخه Subconverter..."
         $response = Invoke-RestMethod -Uri "https://api.github.com/repos/metacubex/subconverter/releases/latest" -Headers @{Authorization = "token ${{ secrets.GITHUB_TOKEN }}"}
         $latest_sub_tag = $response.tag_name
         $asset_url = $response.assets | Where-Object { $_.name -like "subconverter_win64*.7z" } | Select-Object -ExpandProperty browser_download_url
+        Write-Host "نسخه آخر Subconverter: $latest_sub_tag"
+        Write-Host "آدرس دانلود: $asset_url"
         echo "LATEST_SUB_TAG=$latest_sub_tag" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
         echo "SUB_ASSET_URL=$asset_url" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
       shell: powershell
 
-    - name: Determine if build is needed
+    - name: تعیین نیاز به ساخت نسخه جدید
       id: build_decision
       run: |
+        Write-Host "بررسی نیاز به بیلد جدید..."
         $latest_sub_tag = "${{ env.LATEST_SUB_TAG }}"
         $current_repo_commit_sha = "${{ github.sha }}"
 
@@ -50,58 +54,73 @@ jobs:
           if ($current_release_tag -match 'subconverter-desktop-(v\d+\.\d+\.\d+)-[0-9a-fA-F]+') {
             $current_sub_version_in_release = $Matches[1]
           }
-          $tag_ref_response = Invoke-RestMethod -Uri "https://api.github.com/repos/${{ github.repository }}/git/ref/tags/$current_release_tag" -Headers @{Authorization = "token ${{ secrets.GITHUB_TOKEN }}"}
+          $tag_ref_response = Invoke-RestMethod -Uri "https://api.github.com/repos/${{ github.repository }}/git/ref/tags/$current_release_tag" -Headers @{Authorization = "token ${{ secrets.GITHUB_TOKEN }}" }
           $last_release_commit_sha = $tag_ref_response.object.sha
+          Write-Host "آخرین ریلیز: $current_release_tag با کامیت $last_release_commit_sha"
         } catch {
-          Write-Host "No previous release found or fetch failed."
+          Write-Host "هیچ ریلیز قبلی یافت نشد یا خطا در دریافت اطلاعات."
         }
 
         $build_needed = $false
         if (-not $current_release_tag) {
-          Write-Host "First build."
+          Write-Host "ساخت نسخه اولیه (ریلیز قبلی یافت نشد)."
           $build_needed = $true
         } elseif ($latest_sub_tag -ne $current_sub_version_in_release) {
-          Write-Host "Engine version changed: $current_sub_version_in_release -> $latest_sub_tag"
+          Write-Host "نسخه موتور تغییر کرده: $current_sub_version_in_release -> $latest_sub_tag"
           $build_needed = $true
         } elseif ($current_repo_commit_sha -ne $last_release_commit_sha) {
-          Write-Host "Repo files changed: $last_release_commit_sha -> $current_repo_commit_sha"
+          Write-Host "فایل‌های پروژه تغییر کرده‌اند: $last_release_commit_sha -> $current_repo_commit_sha"
           $build_needed = $true
         } else {
-          Write-Host "No changes detected. Skipping build."
+          Write-Host "هیچ تغییری یافت نشد. ساخت انجام نمی‌شود."
         }
 
         echo "FORCE_BUILD=$($build_needed.ToString().ToLower())" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
       shell: powershell
 
-    - name: Download and Extract subconverter.exe
+    - name: دانلود و استخراج subconverter.exe
       if: env.FORCE_BUILD == 'true'
       run: |
+        Write-Host "شروع دانلود و استخراج Subconverter..."
         if ("${{ env.SUB_ASSET_URL }}" -eq "") {
-          Write-Error "Asset URL not found."
+          Write-Error "آدرس فایل باینری Subconverter یافت نشد!"
           exit 1
         }
         Invoke-WebRequest -Uri "${{ env.SUB_ASSET_URL }}" -OutFile "subconverter_release.7z"
         & "C:\Program Files\7-Zip\7z.exe" x "subconverter_release.7z" -o*
         $subconverterExe = Get-ChildItem -Recurse -Filter "subconverter.exe" | Select-Object -First 1
         if ($subconverterExe) {
+          Write-Host "فایل subconverter.exe پیدا شد. انتقال به مسیر اصلی."
           Move-Item -Path $subconverterExe.FullName -Destination "subconverter.exe" -Force
         } else {
-          Write-Error "subconverter.exe not found."
+          Write-Error "فایل subconverter.exe پس از استخراج یافت نشد!"
           exit 1
         }
         Remove-Item -Force "subconverter_release.7z"
         Get-ChildItem -Directory -Filter "subconverter-windows-amd64-*" | Remove-Item -Recurse -Force
+        Write-Host "پاکسازی فایل‌های موقت انجام شد."
       shell: powershell
 
-    - name: Install dependencies
+    - name: نصب وابستگی‌ها
       if: env.FORCE_BUILD == 'true'
-      run: npm install
+      run: |
+        Write-Host "در حال نصب وابستگی‌های npm..."
+        npm install
 
-    - name: Build Electron application for Windows
+    - name: ساخت برنامه Electron برای ویندوز
       if: env.FORCE_BUILD == 'true'
-      run: npm run build
+      run: |
+        Write-Host "شروع ساخت برنامه Electron..."
+        npm run build
 
-    - name: Create Release
+    - name: نمایش محتویات پوشه dist
+      if: env.FORCE_BUILD == 'true'
+      run: |
+        Write-Host "نمایش محتویات پوشه ./dist:"
+        Get-ChildItem -Path ./dist
+      shell: powershell
+
+    - name: ساخت ریلیز جدید در GitHub
       id: create_release
       if: env.FORCE_BUILD == 'true'
       uses: actions/create-release@v1
@@ -109,16 +128,16 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         tag_name: subconverter-desktop-${{ env.LATEST_SUB_TAG }}-${{ github.sha }}
-        release_name: "Subconverter Desktop with ${{ env.LATEST_SUB_TAG }} (Changes: ${{ github.sha }})"
+        release_name: "Subconverter Desktop نسخه ${{ env.LATEST_SUB_TAG }} (تغییرات: ${{ github.sha }})"
         body: >
-          Automated build of Subconverter Desktop.
-          **Subconverter Version:** ${{ env.LATEST_SUB_TAG }}
-          **Project Commit ID:** ${{ github.sha }}
-          This release updates on Subconverter engine or project file changes.
+          ساخت خودکار نسخه دسکتاپ Subconverter.
+          **نسخه موتور:** ${{ env.LATEST_SUB_TAG }}
+          **شناسه کامیت پروژه:** ${{ github.sha }}
+          این ریلیز شامل تغییرات در موتور یا فایل‌های پروژه است.
         draft: false
         prerelease: false
 
-    - name: Upload Release Asset
+    - name: آپلود فایل ZIP برنامه به ریلیز
       if: env.FORCE_BUILD == 'true'
       uses: actions/upload-release-asset@v1
       env:
