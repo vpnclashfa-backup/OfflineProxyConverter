@@ -79,14 +79,14 @@ const remoteConfigs = [
         label: "قوانین فرودگاه‌های بزرگ",
         options: [
             { label: "اکس‌فلاکس", value: "https://gist.githubusercontent.com/jklolixxs/16964c46bad1821c70fa97109fd6faa2/raw/EXFLUX.ini" },
-            { label: "نانوپورت", value: "https://gist.github.com/jklolixxs/32d4e9a1a5d18a92beccf3be434f7966/raw/NaNoport.ini" },
+            { label: "نانوپورت", value: "https://gist.githubusercontent.com/jklolixxs/32d4e9a1a5d18a92beccf3be434f7966/raw/NaNoport.ini" },
             { label: "کوردکلاد", value: "https://gist.githubusercontent.com/jklolixxs/dfbe0cf71ffc547557395c772836d9a8/raw/CordCloud.ini" },
             { label: "بیگ‌ایروپورت", value: "https://gist.githubusercontent.com/jklolixxs/e2b0105c8be6023f3941816509a4c453/raw/BigAirport.ini" },
-            { label: "پائولو کلاد", value: "https://gist.github.com/jklolixxs/9f6989137a2cfcc138c6da4bd4e4cbfc/raw/PaoLuCloud.ini" },
-            { label: "ویوکلاد", value: "https://gist.github.com/jklolixxs/fccb74b6c0018b3ad7b9ed6d327035b3/raw/WaveCloud.ini" },
-            { label: "جی‌جی", value: "https://gist.github.com/jklolixxs/bfd5061dceeef85e84401482f5c92e42/raw/JiJi.ini" },
-            { label: "سی‌جی جیاسو", value: "https://gist.github.com/jklolixxs/6ff6e7658033e9b535e24ade072cf374/raw/SJ.ini" },
-            { label: "ایم‌تلکام", value: "https://gist.github.com/jklolixxs/24f4f58bb646ee2c625803eb916fe36d/raw/ImmTelecom.ini" },
+            { label: "پائولو کلاد", value: "https://gist.githubusercontent.com/jklolixxs/9f6989137a2cfcc138c6da4bd4e4cbfc/raw/PaoLuCloud.ini" },
+            { label: "ویوکلاد", value: "https://gist.githubusercontent.com/jklolixxs/fccb74b6c0018b3ad7b9ed6d327035b3/raw/WaveCloud.ini" },
+            { label: "جی‌جی", value: "https://gist.githubusercontent.com/jklolixxs/bfd5061dceeef85e84401482f5c92e42/raw/JiJi.ini" },
+            { label: "سی‌جی جیاسو", value: "https://gist.githubusercontent.com/jklolixxs/6ff6e7658033e9b535e24ade072cf374/raw/SJ.ini" },
+            { label: "ایم‌تلکام", value: "https://gist.githubusercontent.com/jklolixxs/24f4f58bb646ee2c625803eb916fe36d/raw/ImmTelecom.ini" },
             { label: "امی‌تلکام", value: "https://gist.githubusercontent.com/jklolixxs/b53d315cd1cede23af83322c625803eb916fe36d/raw/AmyTelecom.ini" },
             { label: "لینک‌کیوب", value: "https://subweb.s3.fr-par.scw.cloud/RemoteConfig/customized/convenience.ini" },
             { label: "میائونا", value: "https://gist.githubusercontent.com/tindy2013/1fa08640a9088ac8652dbd40c5d2715b/raw/Miaona.ini" },
@@ -130,6 +130,21 @@ const readFileAsDataURL = (file) => {
     });
 };
 
+// تابع کمکی برای خواندن فایل به صورت متن خام
+const readFileAsText = (file) => {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (event) => resolve(event.target.result);
+        reader.onerror = (error) => reject(error);
+        reader.readAsText(file);
+    });
+};
+
+// تابع کمکی برای Base64 کردن یک رشته
+const base64Encode = (str) => {
+    return btoa(unescape(encodeURIComponent(str)));
+};
+
 function App() {
   // Basic States
   const [subscriptionUrl, setSubscriptionUrl] = useState('');
@@ -141,6 +156,7 @@ function App() {
   // Input Type States (URL vs File)
   const [useFileInput, setUseFileInput] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
+  const [convertToBase64, setConvertToBase64] = useState(false); // New state for Base64 conversion
 
   // Remote Config States
   const [useCustomConfig, setUseCustomConfig] = useState(false);
@@ -218,6 +234,7 @@ function App() {
     try {
       const subconverterBackendUrl = 'http://127.0.0.1:25500';
       let finalUrlParam = '';
+      let inputContent = ''; // To hold the raw content (URL string or file text)
 
       if (useFileInput) {
         if (!selectedFile) {
@@ -225,8 +242,7 @@ function App() {
           return null;
         }
         try {
-          const fileDataUrl = await readFileAsDataURL(selectedFile);
-          finalUrlParam = encodeURIComponent(fileDataUrl); // Encode the entire data URI
+          inputContent = await readFileAsText(selectedFile); // Read file as plain text
         } catch (fileError) {
           setMessage(`خطا در خواندن فایل: ${fileError.message}`);
           return null;
@@ -236,7 +252,21 @@ function App() {
           setMessage("خطا: لطفاً لینک اشتراک را وارد کنید.");
           return null;
         }
-        finalUrlParam = encodeURIComponent(subscriptionUrl);
+        inputContent = subscriptionUrl;
+      }
+
+      if (convertToBase64) {
+          finalUrlParam = encodeURIComponent(base64Encode(inputContent));
+      } else {
+          // If not converting to Base64, and it's a file input, we need to send as data URI
+          // If it's a URL input, send as regular URL
+          if (useFileInput) {
+              // Re-read as Data URL if not Base64 encoded (subconverter expects data: URI for files)
+              const fileDataUrl = await readFileAsDataURL(selectedFile);
+              finalUrlParam = encodeURIComponent(fileDataUrl);
+          } else {
+              finalUrlParam = encodeURIComponent(inputContent); // This is the original URL
+          }
       }
 
       // FIX: Ensure targetFormat is encoded correctly
@@ -404,6 +434,25 @@ function App() {
             </>
           )}
         </div>
+
+        {/* New Base64 Conversion Option */}
+        <div className="mb-4">
+          <label className="inline-flex items-center">
+            <input
+              type="checkbox"
+              id="convertToBase64"
+              className="form-checkbox h-5 w-5 text-purple-600 rounded focus:ring-purple-400"
+              checked={convertToBase64}
+              onChange={(e) => setConvertToBase64(e.target.checked)}
+            />
+            <span className="ml-2 text-gray-700">تبدیل محتوای ورودی به Base64 قبل از ارسال</span>
+          </label>
+          <p className="text-xs text-gray-500 mt-1">
+            اگر این گزینه فعال باشد، لینک یا محتوای فایل شما ابتدا به Base64 تبدیل شده و سپس به موتور تبدیل ارسال می‌شود.
+            این برای برخی از لینک‌های اشتراک که خودشان Base64 هستند، مفید است.
+          </p>
+        </div>
+
 
         <div className="mb-4">
           <label htmlFor="targetFormat" className="block text-gray-700 text-sm font-semibold mb-2">
