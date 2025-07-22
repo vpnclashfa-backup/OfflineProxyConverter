@@ -156,8 +156,8 @@ jobs:
         tag_name: subconverter-desktop-${{ env.LATEST_SUB_TAG }}-${{ github.sha }}
         # نام Release قابل مشاهده
         release_name: Subconverter Desktop with ${{ env.LATEST_SUB_TAG }} (Changes: ${{ github.sha }})
-        # توضیحات Release (استفاده از رشته تک‌خطی با \n برای خطوط جدید)
-        body: "این یک بیلد خودکار از برنامه دسکتاپ Subconverter است.\n**نسخه موتور Subconverter:** ${{ env.LATEST_SUB_TAG }}\n**Commit ID پروژه:** ${{ github.sha }}\nاین Release در صورت به‌روزرسانی موتور Subconverter یا تغییر فایل‌های پروژه، به‌روزرسانی می‌شود."
+        # توضیحات Release را از فایل release_body.txt می‌خوانیم.
+        read_from_file: release_body.txt
         draft: false
         prerelease: false
 
