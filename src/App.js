@@ -78,10 +78,10 @@ const remoteConfigs = [
     {
         label: "قوانین فرودگاه‌های بزرگ",
         options: [
-            { label: "اکس‌فلاکس", value: "https://gist.github.com/jklolixxs/16964c46bad1821c70fa97109fd6faa2/raw/EXFLUX.ini" },
+            { label: "اکس‌فلاکس", value: "https://gist.githubusercontent.com/jklolixxs/16964c46bad1821c70fa97109fd6faa2/raw/EXFLUX.ini" },
             { label: "نانوپورت", value: "https://gist.github.com/jklolixxs/32d4e9a1a5d18a92beccf3be434f7966/raw/NaNoport.ini" },
-            { label: "کوردکلاد", value: "https://gist.github.com/jklolixxs/dfbe0cf71ffc547557395c772836d9a8/raw/CordCloud.ini" },
-            { label: "بیگ‌ایروپورت", value: "https://gist.github.com/jklolixxs/e2b0105c8be6023f3941816509a4c453/raw/BigAirport.ini" },
+            { label: "کوردکلاد", value: "https://gist.githubusercontent.com/jklolixxs/dfbe0cf71ffc547557395c772836d9a8/raw/CordCloud.ini" },
+            { label: "بیگ‌ایروپورت", value: "https://gist.githubusercontent.com/jklolixxs/e2b0105c8be6023f3941816509a4c453/raw/BigAirport.ini" },
             { label: "پائولو کلاد", value: "https://gist.github.com/jklolixxs/9f6989137a2cfcc138c6da4bd4e4cbfc/raw/PaoLuCloud.ini" },
             { label: "ویوکلاد", value: "https://gist.github.com/jklolixxs/fccb74b6c0018b3ad7b9ed6d327035b3/raw/WaveCloud.ini" },
             { label: "جی‌جی", value: "https://gist.github.com/jklolixxs/bfd5061dceeef85e84401482f5c92e42/raw/JiJi.ini" },
@@ -104,7 +104,7 @@ const remoteConfigs = [
             { label: "w8ves", value: "https://raw.nameless13.com/api/public/dl/M-We_Fn7/w8ves.ini" },
             { label: "نیان‌کت", value: "https://raw.githubusercontent.com/SleepyHeeead/subconverter-config/master/remote-config/customized/nyancat.ini" },
             { label: "نکسیتالی", value: "https://subweb.s3.fr-par.scw.cloud/RemoteConfig/customized/nexitally.ini" },
-            { label: "سوکلاد", value: "https://raw.githubusercontent.com/SleepyHeeead/subconverter-config/master/remote-config/customized/socloud.ini" },
+            { label: "سوکلاد", value: "https://raw.githubusercontent.com/SleepyHeehead/subconverter-config/master/remote-config/customized/socloud.ini" },
             { label: "آرک", value: "https://raw.githubusercontent.com/SleepyHeeead/subconverter-config/master/remote-config/customized/ark.ini" },
             { label: "N3RO", value: "https://gist.githubusercontent.com/tindy2013/1fa08640a9088ac8652dbd40c5d2715b/raw/n3ro_optimized.ini" },
             { label: "اسکالر", value: "https://gist.githubusercontent.com/tindy2013/1fa08640a9088ac8652dbd40c5d2715b/raw/scholar_optimized.ini" },
@@ -120,6 +120,16 @@ const remoteConfigs = [
     }
 ];
 
+// تابع کمکی برای خواندن فایل به صورت Data URL
+const readFileAsDataURL = (file) => {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (event) => resolve(event.target.result);
+        reader.onerror = (error) => reject(error);
+        reader.readAsDataURL(file);
+    });
+};
+
 function App() {
   // Basic States
   const [subscriptionUrl, setSubscriptionUrl] = useState('');
@@ -128,12 +138,15 @@ function App() {
   const [message, setMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
+  // Input Type States (URL vs File)
+  const [useFileInput, setUseFileInput] = useState(false);
+  const [selectedFile, setSelectedFile] = useState(null);
+
   // Remote Config States
   const [useCustomConfig, setUseCustomConfig] = useState(false);
   const [selectedPredefinedConfig, setSelectedPredefinedConfig] = useState('');
   const [customConfigUrlInput, setCustomConfigUrlInput] = useState('');
-  // externalConfigUrl is the actual URL sent to subconverter
-  const [externalConfigUrl, setExternalConfigUrl] = useState('');
+  const [externalConfigUrl, setExternalConfigUrl] = useState(''); // This is the actual URL sent to subconverter
 
 
   // Advanced Options States (re-introducing all from previous comprehensive version)
@@ -168,7 +181,7 @@ function App() {
   const [showNodeFiltering, setShowNodeFiltering] = useState(false);
   const [showNodeRenaming, setShowNodeRenaming] = useState(false);
   const [showNodeFeatures, setShowNodeFeatures] = useState(false);
-  const [showOutputOptions, setShowOutputOptions] = useState(false);
+  const [showRemoteConfig, setShowRemoteConfig] = useState(false); // New state for remote config section
   const [showClashSpecific, setShowClashSpecific] = useState(false);
   const [showOtherAdvanced, setShowOtherAdvanced] = useState(false);
 
@@ -199,22 +212,35 @@ function App() {
 
   // Function to handle the actual conversion via a backend subconverter
   const performConversion = async () => {
-    if (!subscriptionUrl) {
-      setMessage("خطا: لطفاً لینک اشتراک را وارد کنید.");
-      return null;
-    }
-
+    setMessage(''); // Clear previous messages
     setIsLoading(true);
-    setMessage('در حال تبدیل...');
 
     try {
-      // The Electron main process will handle launching subconverter.exe
-      // We will assume it's running locally on 25500
       const subconverterBackendUrl = 'http://127.0.0.1:25500';
+      let finalUrlParam = '';
 
-      // Construct the URL for the subconverter backend with all parameters
-      const encodedUrl = encodeURIComponent(subscriptionUrl);
-      let backendApiUrl = `${subconverterBackendUrl}/sub?target=${targetFormat}&url=${encodedUrl}`;
+      if (useFileInput) {
+        if (!selectedFile) {
+          setMessage("خطا: لطفاً یک فایل را انتخاب کنید.");
+          return null;
+        }
+        try {
+          const fileDataUrl = await readFileAsDataURL(selectedFile);
+          finalUrlParam = encodeURIComponent(fileDataUrl); // Encode the entire data URI
+        } catch (fileError) {
+          setMessage(`خطا در خواندن فایل: ${fileError.message}`);
+          return null;
+        }
+      } else {
+        if (!subscriptionUrl) {
+          setMessage("خطا: لطفاً لینک اشتراک را وارد کنید.");
+          return null;
+        }
+        finalUrlParam = encodeURIComponent(subscriptionUrl);
+      }
+
+      // FIX: Ensure targetFormat is encoded correctly
+      let backendApiUrl = `${subconverterBackendUrl}/sub?target=${encodeURIComponent(targetFormat)}&url=${finalUrlParam}`;
 
       // Add externalConfigUrl if it's set
       if (externalConfigUrl) backendApiUrl += `&config=${encodeURIComponent(externalConfigUrl)}`;
@@ -261,7 +287,13 @@ function App() {
       return content;
 
     } catch (error) {
-      setMessage(`خطا در تبدیل: ${error.message}. لطفاً مطمئن شوید subconverter.exe در حال اجرا است.`);
+      let errorMessage = `خطا در تبدیل: ${error.message}.`;
+      if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError') || error.message.includes('ERR_CONNECTION_REFUSED')) {
+        errorMessage += ' لطفاً مطمئن شوید Subconverter.exe در حال اجرا است و توسط آنتی‌ویروس یا فایروال شما بلاک نشده باشد.';
+      } else if (error.response && !error.response.ok) {
+         errorMessage += ` (کد خطا: ${error.response.status})`;
+      }
+      setMessage(errorMessage);
       console.error('Conversion error:', error);
       return null;
     } finally {
@@ -309,20 +341,68 @@ function App() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-500 to-pink-500 flex items-center justify-center p-4 font-vazirmatn"> {/* More vibrant gradient, Vazirmatn font */}
       <div className="bg-white rounded-3xl shadow-2xl p-8 w-full max-w-2xl transform transition-all duration-300 hover:scale-105 hover:shadow-xl"> {/* More rounded, subtle hover shadow */}
-        <h1 className="text-3xl font-extrabold text-center text-gray-900 mb-6">مبدل اشتراک پراکسی لوکال</h1> {/* Bolder title */}
+        <h1 className="text-3xl font-extrabold text-center text-gray-900 mb-2">مبدل اشتراک پراکسی لوکال</h1> {/* Bolder title */}
+        <p className="text-center text-gray-600 text-sm mb-6">
+          موتور تبدیل (Subconverter.exe) به صورت خودکار در پس‌زمینه توسط برنامه اجرا می‌شود.
+        </p>
 
         <div className="mb-4">
-          <label htmlFor="subscriptionUrl" className="block text-gray-700 text-sm font-semibold mb-2">
-            لینک اشتراک:
+          <label className="block text-gray-700 text-sm font-semibold mb-2">
+            نوع ورودی:
           </label>
-          <input
-            type="url"
-            id="subscriptionUrl"
-            className="shadow-sm appearance-none border rounded-xl w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-transparent transition duration-200"
-            placeholder="مثال: https://your-provider.com/sub"
-            value={subscriptionUrl}
-            onChange={(e) => setSubscriptionUrl(e.target.value)}
-          />
+          <div className="flex items-center space-x-4 mb-2">
+            <label className="inline-flex items-center">
+              <input
+                type="radio"
+                className="form-radio text-purple-600 h-5 w-5"
+                name="inputType"
+                value="url"
+                checked={!useFileInput}
+                onChange={() => setUseFileInput(false)}
+              />
+              <span className="ml-2 text-gray-700">لینک اشتراک</span>
+            </label>
+            <label className="inline-flex items-center">
+              <input
+                type="radio"
+                className="form-radio text-purple-600 h-5 w-5"
+                name="inputType"
+                value="file"
+                checked={useFileInput}
+                onChange={() => setUseFileInput(true)}
+              />
+              <span className="ml-2 text-gray-700">فایل اشتراک</span>
+            </label>
+          </div>
+
+          {!useFileInput ? (
+            <>
+              <input
+                type="url"
+                id="subscriptionUrl"
+                className="shadow-sm appearance-none border rounded-xl w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-transparent transition duration-200"
+                placeholder="مثال: https://your-provider.com/sub"
+                value={subscriptionUrl}
+                onChange={(e) => setSubscriptionUrl(e.target.value)}
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                می‌توانید چندین لینک را با کاراکتر `|` (پایپ) از هم جدا کنید. مثال: `لینک۱|لینک۲|لینک۳`
+              </p>
+            </>
+          ) : (
+            <>
+              <input
+                type="file"
+                id="subscriptionFile"
+                className="shadow-sm appearance-none border rounded-xl w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-transparent transition duration-200"
+                onChange={(e) => setSelectedFile(e.target.files[0])}
+                accept=".txt,.conf,.yaml,.yml,.ini" // Suggest common config file types
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                فایل می‌تواند شامل چندین لینک پراکسی (هر کدام در یک خط) یا یک فایل پیکربندی کامل باشد.
+              </p>
+            </>
+          )}
         </div>
 
         <div className="mb-4">
@@ -373,8 +453,8 @@ function App() {
         {/* Advanced Options Sections */}
         <CollapsibleSection
           title="پیکربندی خارجی (Remote Config)"
-          isOpen={showOutputOptions} // Reusing this toggle for simplicity, or create new state
-          toggleOpen={() => setShowOutputOptions(!showOutputOptions)}
+          isOpen={showRemoteConfig} // Using its own toggle
+          toggleOpen={() => setShowRemoteConfig(!showRemoteConfig)}
         >
           <div className="flex items-center mb-4">
             <input
@@ -593,7 +673,6 @@ function App() {
           isOpen={showOutputOptions}
           toggleOpen={() => setShowOutputOptions(!showOutputOptions)}
         >
-          {/* Moved Remote Config selection here */}
           {/* ... existing content for output options ... */}
           <div className="flex items-center mb-4">
             <input
