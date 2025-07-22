@@ -1,7 +1,124 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 // Tailwind CSS is assumed to be available
 // Make sure you've loaded Vazirmatn font in public/index.html and configured Tailwind CSS.
+
+// لیست پیکربندی‌های خارجی از راه دور
+const remoteConfigs = [
+    {
+        label: "عمومی",
+        options: [
+            { label: "پیش‌فرض (بدون تست خودکار سرعت)", value: "https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/config/ACL4SSR_Online_Full_NoAuto.ini" },
+            { label: "پیش‌فرض (تست خودکار سرعت)", value: "https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/config/ACL4SSR_Online_Full_AdblockPlus.ini" },
+            { label: "پیش‌فرض (مخصوص تلویزیون سونی)", value: "https://raw.githubusercontent.com/youshandefeiyang/webcdn/main/SONY.ini" },
+            { label: "پیش‌فرض (همراه با AdGuard DNS برای Clash)", value: "https://gist.githubusercontent.com/tindy2013/1fa08640a9088ac8652dbd40c5d2715b/raw/default_with_clash_adg.yml" },
+            { label: "ACL (تمام گروه‌ها، نسخه اصلاح شده Dream)", value: "https://raw.githubusercontent.com/WC-Dream/ACL4SSR/WD/Clash/config/ACL4SSR_Online_Full_Dream.ini" },
+            { label: "ACL (گروه‌های فشرده، نسخه اصلاح شده Dream)", value: "https://raw.githubusercontent.com/WC-Dream/ACL4SSR/WD/Clash/config/ACL4SSR_Mini_Dream.ini" },
+            { label: "امبی-تیک‌تاک (گروه‌بندی رسانه‌ای، ضد تبلیغات قوی)", value: "https://raw.githubusercontent.com/justdoiting/ClashRule/main/GeneralClashRule.ini" },
+            { label: "گروه‌بندی عمومی رسانه‌ای", value: "https://raw.githubusercontent.com/cutethotw/ClashRule/main/GeneralClashRule.ini" }
+        ]
+    },
+    {
+        label: "قوانین ACL",
+        options: [
+            { label: "ACL (نسخه پیش‌فرض)", value: "https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/config/ACL4SSR_Online.ini" },
+            { label: "ACL (بدون تست سرعت)", value: "https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/config/ACL4SSR_Online_NoAuto.ini" },
+            { label: "ACL (حذف تبلیغات)", value: "https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/config/ACL4SSR_Online_AdblockPlus.ini" },
+            { label: "ACL (چند کشوری)", value: "https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/config/ACL4SSR_Online_MultiCountry.ini" },
+            { label: "ACL (بدون Reject)", value: "https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/config/ACL4SSR_Online_NoReject.ini" },
+            { label: "ACL (فشرده، بدون تست سرعت)", value: "https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/config/ACL4SSR_Online_Mini_NoAuto.ini" },
+            { label: "ACL (تمام گروه‌ها)", value: "https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/config/ACL4SSR_Online_Full.ini" },
+            { label: "ACL (تمام گروه‌ها، گوگل)", value: "https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/config/ACL4SSR_Online_Full_Google.ini" },
+            { label: "ACL (تمام گروه‌ها، چند حالته)", value: "https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/config/ACL4SSR_Online_Full_MultiMode.ini" },
+            { label: "ACL (تمام گروه‌ها، نتفلیکس)", value: "https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/config/ACL4SSR_Online_Full_Netflix.ini" },
+            { label: "ACL (فشرده)", value: "https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/config/ACL4SSR_Online_Mini.ini" },
+            { label: "ACL (فشرده، حذف تبلیغات)", value: "https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/config/ACL4SSR_Online_Mini_AdblockPlus.ini" },
+            { label: "ACL (فشرده، Fallback)", value: "https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/config/ACL4SSR_Online_Mini_Fallback.ini" },
+            { label: "ACL (فشرده، چند کشوری)", value: "https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/config/ACL4SSR_Online_Mini_MultiCountry.ini" },
+            { label: "ACL (فشرده، چند حالته)", value: "https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/config/ACL4SSR_Online_Mini_MultiMode.ini" }
+        ]
+    },
+    {
+        label: "قوانین جمع‌آوری شده از سراسر وب",
+        options: [
+            { label: "قوانین معمولی", value: "https://raw.githubusercontent.com/flyhigherpi/merlinclash_clash_related/master/Rule_config/ZHANG.ini" },
+            { label: "استفاده شخصی (Cool)", value: "https://raw.githubusercontent.com/xiaoshenxian233/cool/rule/complex.ini" },
+            { label: "فاروس پرو (بدون تست سرعت)", value: "https://subweb.s3.fr-par.scw.cloud/RemoteConfig/special/phaors.ini" },
+            { label: "انتقال خودکار خطا (بر اساس منطقه)", value: "https://raw.githubusercontent.com/flyhigherpi/merlinclash_clash_related/master/Rule_config/ZHANG_Area_Fallback.ini" },
+            { label: "تست خودکار سرعت (بر اساس منطقه)", value: "https://raw.githubusercontent.com/flyhigherpi/merlinclash_clash_related/master/Rule_config/ZHANG_Area_Urltest.ini" },
+            { label: "بدون تست خودکار سرعت (بر اساس منطقه)", value: "https://raw.githubusercontent.com/flyhigherpi/merlinclash_clash_related/master/Rule_config/ZHANG_Area_NoAuto.ini" },
+            { label: "اوهههههه", value: "https://raw.githubusercontent.com/OoHHHHHHH/ini/master/config.ini" },
+            { label: "CFW-TAP", value: "https://raw.githubusercontent.com/OoHHHHHHH/ini/master/cfw-tap.ini" },
+            { label: "lhl77 (تمام گروه‌ها، به‌روزرسانی منظم)", value: "https://raw.githubusercontent.com/lhl77/sub-ini/main/tsutsu-full.ini" },
+            { label: "lhl77 (نسخه ساده، به‌روزرسانی منظم)", value: "https://raw.githubusercontent.com/lhl77/sub-ini/main/tsutsu-mini-gfw.ini" },
+            { label: "کانرز هوا شن‌جی (خروجی)", value: "https://gist.githubusercontent.com/tindy2013/1fa08640a9088ac8652dbd40c5d2715b/raw/connershua_new.ini" },
+            { label: "کانرز هوا شن‌جی (ورودی، بازگشت به چین)", value: "https://gist.githubusercontent.com/tindy2013/1fa08640a9088ac8652dbd40c5d2715b/raw/connershua_backtocn.ini" },
+            { label: "lhie1 دونگ‌ژو (با گروه‌بندی Clash)", value: "https://gist.githubusercontent.com/tindy2013/1fa08640a9088ac8652dbd40c5d2715b/raw/lhie1_clash.ini" },
+            { label: "lhie1 دونگ‌ژو (نسخه کامل)", value: "https://gist.githubusercontent.com/tindy2013/1fa08640a9088ac8652dbd40c5d2715b/raw/lhie1_dler.ini" },
+            { label: "eHpo1", value: "https://gist.githubusercontent.com/tindy2013/1fa08640a9088ac8652dbd40c5d2715b/raw/ehpo1_main.ini" },
+            { label: "لیست سفید پیش‌فرض (چند استراتژی گروهی)", value: "https://raw.nameless13.com/api/public/dl/ROzQqi2S/white.ini" },
+            { label: "چند استراتژی گروهی (ضد حسابرسی)", value: "https://raw.nameless13.com/api/public/dl/ptLeiO3S/mayinggfw.ini" },
+            { label: "لیست سفید پیش‌فرض (استراتژی ساده)", value: "https://raw.nameless13.com/api/public/dl/FWSh3dXz/easy3.ini" },
+            { label: "افزودن استراتژی SMTP (به چند استراتژی)", value: "https://raw.nameless13.com/api/public/dl/L_-vxO7I/youtube.ini" },
+            { label: "توصیه برای مبتدیان (بدون استراتژی)", value: "https://raw.nameless13.com/api/public/dl/zKF9vFbb/easy.ini" },
+            { label: "توصیه برای مبتدیان (با گروه‌بندی کشور)", value: "https://raw.nameless13.com/api/public/dl/E69bzCaE/easy2.ini" },
+            { label: "فقط IPIP CN + نهایی (بدون استراتژی)", value: "https://raw.nameless13.com/api/public/dl/XHr0miMg/ipip.ini" },
+            { label: "گروه‌بندی VIP Maying (بدون استراتژی)", value: "https://raw.nameless13.com/api/public/dl/BBnfb5lD/MAYINGVIP.ini" },
+            { label: "پینیون (گروه‌بندی فقط هنگ کنگ)", value: "https://raw.githubusercontent.com/Mazeorz/airports/master/Clash/Examine.ini" },
+            { label: "پینیون (گروه‌بندی تمام مناطق)", value: "https://raw.githubusercontent.com/Mazeorz/airports/master/Clash/Examine_Full.ini" },
+            { label: "nzw9314", value: "https://gist.githubusercontent.com/tindy2013/1fa08640a9088ac8652dbd40c5d2715b/raw/nzw9314_custom.ini" },
+            { label: "maicoo-l", value: "https://gist.githubusercontent.com/tindy2013/1fa08640a9088ac8652dbd40c5d2715b/raw/maicoo-l_custom.ini" },
+            { label: "DlerCloud پلاتینیوم (سفارشی شده Li Ge)", value: "https://gist.githubusercontent.com/tindy2013/1fa08640a9088ac8652dbd40c5d2715b/raw/dlercloud_lige_platinum.ini" },
+            { label: "DlerCloud گلد (سفارشی شده Li Ge)", value: "https://gist.githubusercontent.com/tindy2013/1fa08640a9088ac8652dbd40c5d2715b/raw/dlercloud_lige_gold.ini" },
+            { label: "DlerCloud سیلور (سفارشی شده Li Ge)", value: "https://gist.githubusercontent.com/tindy2013/1fa08640a9088ac8652dbd40c5d2715b/raw/dlercloud_lige_silver.ini" },
+            { label: "استفاده شخصی (ProxyStorage)", value: "https://unpkg.com/proxy-script/config/Clash/clash.ini" },
+            { label: "شل‌کلش (اصلاح شده UlinoyaPed)", value: "https://github.com/UlinoyaPed/ShellClash/raw/master/rules/ShellClash.ini" }
+        ]
+    },
+    {
+        label: "قوانین فرودگاه‌های بزرگ",
+        options: [
+            { label: "اکس‌فلاکس", value: "https://gist.github.com/jklolixxs/16964c46bad1821c70fa97109fd6faa2/raw/EXFLUX.ini" },
+            { label: "نانوپورت", value: "https://gist.github.com/jklolixxs/32d4e9a1a5d18a92beccf3be434f7966/raw/NaNoport.ini" },
+            { label: "کوردکلاد", value: "https://gist.github.com/jklolixxs/dfbe0cf71ffc547557395c772836d9a8/raw/CordCloud.ini" },
+            { label: "بیگ‌ایروپورت", value: "https://gist.github.com/jklolixxs/e2b0105c8be6023f3941816509a4c453/raw/BigAirport.ini" },
+            { label: "پائولو کلاد", value: "https://gist.github.com/jklolixxs/9f6989137a2cfcc138c6da4bd4e4cbfc/raw/PaoLuCloud.ini" },
+            { label: "ویوکلاد", value: "https://gist.github.com/jklolixxs/fccb74b6c0018b3ad7b9ed6d327035b3/raw/WaveCloud.ini" },
+            { label: "جی‌جی", value: "https://gist.github.com/jklolixxs/bfd5061dceeef85e84401482f5c92e42/raw/JiJi.ini" },
+            { label: "سی‌جی جیاسو", value: "https://gist.github.com/jklolixxs/6ff6e7658033e9b535e24ade072cf374/raw/SJ.ini" },
+            { label: "ایم‌تلکام", value: "https://gist.github.com/jklolixxs/24f4f58bb646ee2c625803eb916fe36d/raw/ImmTelecom.ini" },
+            { label: "امی‌تلکام", value: "https://gist.githubusercontent.com/jklolixxs/b53d315cd1cede23af83322c625803eb916fe36d/raw/AmyTelecom.ini" },
+            { label: "لینک‌کیوب", value: "https://subweb.s3.fr-par.scw.cloud/RemoteConfig/customized/convenience.ini" },
+            { label: "میائونا", value: "https://gist.githubusercontent.com/tindy2013/1fa08640a9088ac8652dbd40c5d2715b/raw/Miaona.ini" },
+            { label: "فو و فرندز", value: "https://gist.githubusercontent.com/tindy2013/1fa08640a9088ac8652dbd40c5d2715b/raw/Foo&Friends.ini" },
+            { label: "ای‌بی‌کلاد", value: "https://gist.githubusercontent.com/tindy2013/1fa08640a9088ac8652dbd40c5d2715b/raw/ABCloud.ini" },
+            { label: "شیان‌یو", value: "https://raw.githubusercontent.com/SleepyHeeead/subconverter-config/master/remote-config/customized/xianyu.ini" },
+            { label: "بیان‌لی‌دیان", value: "https://subweb.oss-cn-hongkong.aliyuncs.com/RemoteConfig/customized/convenience.ini" },
+            { label: "سی‌ان‌ایکس", value: "https://raw.githubusercontent.com/Mazeorz/airports/master/Clash/SSRcloud.ini" },
+            { label: "نیروانا", value: "https://raw.githubusercontent.com/Mazetsz/ACL4SSR/master/Clash/config/V2rayPro.ini" },
+            { label: "V2Pro", value: "https://raw.githubusercontent.com/Mazeorz/airports/master/Clash/V2Pro.ini" },
+            { label: "استیچ (تست خودکار سرعت)", value: "https://raw.githubusercontent.com/Mazeorz/airports/master/Clash/Stitch.ini" },
+            { label: "استیچ (توازن بار)", value: "https://raw.githubusercontent.com/Mazeorz/airports/master/Clash/Stitch-Balance.ini" },
+            { label: "مایینگ", value: "https://raw.githubusercontent.com/SleepyHeeead/subconverter-config/master/remote-config/customized/maying.ini" },
+            { label: "Ytoo", value: "https://subweb.s3.fr-par.scw.cloud/RemoteConfig/customized/ytoo.ini" },
+            { label: "w8ves", value: "https://raw.nameless13.com/api/public/dl/M-We_Fn7/w8ves.ini" },
+            { label: "نیان‌کت", value: "https://raw.githubusercontent.com/SleepyHeeead/subconverter-config/master/remote-config/customized/nyancat.ini" },
+            { label: "نکسیتالی", value: "https://subweb.s3.fr-par.scw.cloud/RemoteConfig/customized/nexitally.ini" },
+            { label: "سوکلاد", value: "https://raw.githubusercontent.com/SleepyHeeead/subconverter-config/master/remote-config/customized/socloud.ini" },
+            { label: "آرک", value: "https://raw.githubusercontent.com/SleepyHeeead/subconverter-config/master/remote-config/customized/ark.ini" },
+            { label: "N3RO", value: "https://gist.githubusercontent.com/tindy2013/1fa08640a9088ac8652dbd40c5d2715b/raw/n3ro_optimized.ini" },
+            { label: "اسکالر", value: "https://gist.githubusercontent.com/tindy2013/1fa08640a9088ac8652dbd40c5d2715b/raw/scholar_optimized.ini" },
+            { label: "فلاورکلاد", value: "https://subweb.s3.fr-par.scw.cloud/RemoteConfig/customized/flower.ini" }
+        ]
+    },
+    {
+        label: "ویژه",
+        options: [
+            { label: "نت‌ایز آن‌بلاک", value: "https://raw.githubusercontent.com/SleepyHeeead/subconverter-config/master/remote-config/special/netease.ini" },
+            { label: "پایه", value: "https://raw.githubusercontent.com/SleepyHeeead/subconverter-config/master/remote-config/special/basic.ini" }
+        ]
+    }
+];
 
 function App() {
   // Basic States
@@ -11,8 +128,15 @@ function App() {
   const [message, setMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-  // Advanced Options States (re-introducing all from previous comprehensive version)
+  // Remote Config States
+  const [useCustomConfig, setUseCustomConfig] = useState(false);
+  const [selectedPredefinedConfig, setSelectedPredefinedConfig] = useState('');
+  const [customConfigUrlInput, setCustomConfigUrlInput] = useState('');
+  // externalConfigUrl is the actual URL sent to subconverter
   const [externalConfigUrl, setExternalConfigUrl] = useState('');
+
+
+  // Advanced Options States (re-introducing all from previous comprehensive version)
   const [includeRemarks, setIncludeRemarks] = useState('');
   const [excludeRemarks, setExcludeRemarks] = useState('');
   const [renameRule, setRenameRule] = useState('');
@@ -48,6 +172,30 @@ function App() {
   const [showClashSpecific, setShowClashSpecific] = useState(false);
   const [showOtherAdvanced, setShowOtherAdvanced] = useState(false);
 
+  // Effect to set default remote config based on targetFormat
+  useEffect(() => {
+    let defaultUrl = '';
+    if (targetFormat === 'clash') {
+      defaultUrl = "https://raw.githubusercontent.com/10ium/clash_rules/refs/heads/main/ACL4SSR/vpnclashfa.ini"; // مخصوص ایران
+    } else {
+      defaultUrl = "https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/config/ACL4SSR_Online_Full_AdblockPlus.ini"; // پیش‌فرض (تست خودکار سرعت)
+    }
+    setSelectedPredefinedConfig(defaultUrl);
+    // Update externalConfigUrl if not using custom config
+    if (!useCustomConfig) {
+      setExternalConfigUrl(defaultUrl);
+    }
+  }, [targetFormat, useCustomConfig]); // Dependency on targetFormat and useCustomConfig
+
+  // Effect to update externalConfigUrl when predefined or custom changes
+  useEffect(() => {
+    if (useCustomConfig) {
+      setExternalConfigUrl(customConfigUrlInput);
+    } else {
+      setExternalConfigUrl(selectedPredefinedConfig);
+    }
+  }, [useCustomConfig, selectedPredefinedConfig, customConfigUrlInput]);
+
 
   // Function to handle the actual conversion via a backend subconverter
   const performConversion = async () => {
@@ -68,8 +216,10 @@ function App() {
       const encodedUrl = encodeURIComponent(subscriptionUrl);
       let backendApiUrl = `${subconverterBackendUrl}/sub?target=${targetFormat}&url=${encodedUrl}`;
 
-      // Add all advanced parameters if they are set
+      // Add externalConfigUrl if it's set
       if (externalConfigUrl) backendApiUrl += `&config=${encodeURIComponent(externalConfigUrl)}`;
+      
+      // Add all advanced parameters if they are set
       if (includeRemarks) backendApiUrl += `&include=${encodeURIComponent(includeRemarks)}`;
       if (excludeRemarks) backendApiUrl += `&exclude=${encodeURIComponent(excludeRemarks)}`;
       if (renameRule) backendApiUrl += `&rename=${encodeURIComponent(renameRule)}`;
@@ -221,6 +371,64 @@ function App() {
         </div>
 
         {/* Advanced Options Sections */}
+        <CollapsibleSection
+          title="پیکربندی خارجی (Remote Config)"
+          isOpen={showOutputOptions} // Reusing this toggle for simplicity, or create new state
+          toggleOpen={() => setShowOutputOptions(!showOutputOptions)}
+        >
+          <div className="flex items-center mb-4">
+            <input
+              type="checkbox"
+              id="useCustomConfig"
+              className="form-checkbox h-5 w-5 text-purple-600 rounded focus:ring-purple-400"
+              checked={useCustomConfig}
+              onChange={(e) => setUseCustomConfig(e.target.checked)}
+            />
+            <label htmlFor="useCustomConfig" className="ml-2 text-gray-700 text-sm">استفاده از لینک پیکربندی سفارشی</label>
+          </div>
+
+          {!useCustomConfig ? (
+            <div className="mb-4">
+              <label htmlFor="selectedPredefinedConfig" className="block text-gray-700 text-sm font-semibold mb-2">
+                انتخاب پیکربندی از پیش تعریف شده:
+              </label>
+              <select
+                id="selectedPredefinedConfig"
+                className="shadow-sm appearance-none border rounded-xl w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-transparent transition duration-200"
+                value={selectedPredefinedConfig}
+                onChange={(e) => setSelectedPredefinedConfig(e.target.value)}
+              >
+                {/* "مخصوص ایران" option */}
+                <option value="https://raw.githubusercontent.com/10ium/clash_rules/refs/heads/main/ACL4SSR/vpnclashfa.ini">مخصوص ایران</option>
+                {remoteConfigs.map(group => (
+                  <optgroup key={group.label} label={group.label}>
+                    {group.options.map(config => (
+                      <option key={config.value} value={config.value}>
+                        {config.label}
+                      </option>
+                    ))}
+                  </optgroup>
+                ))}
+              </select>
+            </div>
+          ) : (
+            <div className="mb-4">
+              <label htmlFor="customConfigUrlInput" className="block text-gray-700 text-sm font-semibold mb-2">
+                لینک پیکربندی سفارشی:
+              </label>
+              <input
+                type="url"
+                id="customConfigUrlInput"
+                className="shadow-sm appearance-none border rounded-xl w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-transparent transition duration-200"
+                placeholder="مثال: https://your-custom-config.com/config.ini"
+                value={customConfigUrlInput}
+                onChange={(e) => setCustomConfigUrlInput(e.target.value)}
+              />
+            </div>
+          )}
+        </CollapsibleSection>
+
+
         <CollapsibleSection
           title="فیلتر و تغییر نام گره‌ها"
           isOpen={showNodeFiltering}
@@ -385,6 +593,8 @@ function App() {
           isOpen={showOutputOptions}
           toggleOpen={() => setShowOutputOptions(!showOutputOptions)}
         >
+          {/* Moved Remote Config selection here */}
+          {/* ... existing content for output options ... */}
           <div className="flex items-center mb-4">
             <input
               type="checkbox"
@@ -454,20 +664,6 @@ function App() {
               onChange={(e) => setExpand(e.target.checked)}
             />
             <label htmlFor="expand" className="ml-2 text-gray-700 text-sm">گسترش RuleSetها (قوانین کامل در خروجی)</label>
-          </div>
-          <div className="mb-4">
-            <label htmlFor="externalConfigUrl" className="block text-gray-700 text-sm font-semibold mb-2">
-              لینک پیکربندی خارجی (`config`):
-            </label>
-            <input
-              type="url"
-              id="externalConfigUrl"
-              className="shadow-sm appearance-none border rounded-lg w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-purple-400"
-              placeholder="مثال: https://your-gist.com/config.ini"
-              value={externalConfigUrl}
-              onChange={(e) => setExternalConfigUrl(e.target.value)}
-            />
-            <p className="text-xs text-gray-500 mt-1">آدرس فایل پیکربندی خارجی (INI, YAML, TOML) برای تنظیمات پیشرفته.</p>
           </div>
         </CollapsibleSection>
 
