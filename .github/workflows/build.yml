@@ -1,127 +1,58 @@
 # .github/workflows/build.yml
-# نام گردش کار
 name: Build and Release Subconverter Desktop
 
-# زمانبندی و رویدادهای اجرا
 on:
   schedule:
-    # هر سه روز یک بار در نیمه‌شب (UTC) اجرا می‌شود
     - cron: '0 0 */3 * *'
-  # اجازه می‌دهد که به صورت دستی این گردش کار را اجرا کنید
   workflow_dispatch:
-  # همچنین، اگر تگی با فرمت vX.Y.Z به مخزن Push شود، این گردش کار اجرا می‌شود
-  # این برای زمانی است که شما تغییرات دستی در کد پروژه خود ایجاد کرده‌اید و می‌خواهید یک Release جدید بسازید
-  push:
-    tags:
-      - 'v*.*.*'
 
-# تعریف Jobها
 jobs:
-  # Job برای ساخت برنامه ویندوز
   build-windows:
-    # از آخرین نسخه ویندوز برای اجرای Job استفاده کنید
     runs-on: windows-latest
 
-    # مراحل Job
     steps:
-    # مرحله: دریافت کد مخزن
     - name: Checkout code
       uses: actions/checkout@v4
-      with:
-        # fetch-depth: 0 برای دریافت تمام تاریخچه Commitها لازم است
-        # تا بتوانیم SHA Commitهای Releaseهای قبلی را مقایسه کنیم.
-        fetch-depth: 0
 
-    # مرحله: تنظیم Node.js
     - name: Setup Node.js
       uses: actions/setup-node@v4
       with:
-        # استفاده از Node.js نسخه 20
         node-version: '20'
 
-    # مرحله: دریافت اطلاعات آخرین Release موتور subconverter
     - name: Get latest subconverter release info
-      id: get_subconverter_release # شناسه این مرحله برای ارجاع در مراحل بعدی
+      id: get_subconverter_release
       run: |
         $response = Invoke-RestMethod -Uri "https://api.github.com/repos/metacubex/subconverter/releases/latest" -Headers @{Authorization = "token ${{ secrets.GITHUB_TOKEN }}"}
-        $latest_sub_tag = $response.tag_name # نام تگ آخرین Release (مثلاً v0.9.1)
+        $latest_tag = $response.tag_name
         
-        # الگوی جستجو را به "subconverter_win64*.7z" تغییر می‌دهیم
+        # تغییر در اینجا: الگوی جستجو را به "subconverter_win64*.7z" تغییر می‌دهیم
+        # این الگو با "subconverter_win64.7z" مطابقت دارد
         $asset_url = $response.assets | Where-Object { $_.name -like "subconverter_win64*.7z" } | Select-Object -ExpandProperty browser_download_url
         
-        echo "LATEST_SUB_TAG=$latest_sub_tag" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+        echo "LATEST_SUB_TAG=$latest_tag" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
         echo "SUB_ASSET_URL=$asset_url" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
       shell: powershell
 
-    # مرحله: تعیین اینکه آیا نیاز به Build جدید هست یا خیر (بررسی تغییرات موتور و فایل‌ها)
-    - name: Determine if build is needed
-      id: build_decision
-      run: |
-        $latest_sub_tag = "${{ env.LATEST_SUB_TAG }}" # آخرین نسخه subconverter موجود
-        $current_repo_commit_sha = "${{ github.sha }}" # SHA Commit فعلی این مخزن
-        
-        $current_release_tag = ""
-        $last_release_commit_sha = ""
-        $current_sub_version_in_release = ""
-        
-        try {
-          # تلاش برای دریافت اطلاعات آخرین Release از *این مخزن*
-          $repo_release_response = Invoke-RestMethod -Uri "https://api.github.com/repos/${{ github.repository }}/releases/latest" -Headers @{Authorization = "token ${{ secrets.GITHUB_TOKEN }}"}
-          $current_release_tag = $repo_release_response.tag_name # تگ آخرین Release ما (مثلاً subconverter-desktop-v0.9.1-10)
-          
-          # استخراج نسخه subconverter از تگ Release فعلی ما
-          if ($current_release_tag -match 'subconverter-desktop-(v\d+\.\d+\.\d+)-\d+') {
-            $current_sub_version_in_release = $Matches[1] # نسخه subconverter در آخرین Release ما (مثلاً v0.9.1)
-          }
-
-          # دریافت SHA Commit مرتبط با تگ آخرین Release ما
-          $tag_ref_response = Invoke-RestMethod -Uri "https://api.github.com/repos/${{ github.repository }}/git/ref/tags/$current_release_tag" -Headers @{Authorization = "token ${{ secrets.GITHUB_TOKEN }}"}
-          $last_release_commit_sha = $tag_ref_response.object.sha
-
-        } catch {
-          Write-Host "No previous release found in this repository or failed to fetch release info (this is normal for first build)."
-        }
-
-        $build_needed = $false
-
-        if (-not $current_release_tag) {
-          # اگر هیچ Release قبلی وجود ندارد، همیشه Build کن (اولین Build)
-          Write-Host "No previous release found. Building first version."
-          $build_needed = $true
-        } elseif ($latest_sub_tag -ne $current_sub_version_in_release) {
-          # اگر نسخه موتور subconverter تغییر کرده است
-          Write-Host "Subconverter version changed: $current_sub_version_in_release -> $latest_sub_tag. Building."
-          $build_needed = $true
-        } elseif ($current_repo_commit_sha -ne $last_release_commit_sha) {
-          # اگر SHA Commit فعلی با SHA Commit آخرین Release متفاوت است (یعنی فایل‌های پروژه تغییر کرده‌اند)
-          Write-Host "Project files changed ($last_release_commit_sha -> $current_repo_commit_sha). Building."
-          $build_needed = $true
-        } else {
-          Write-Host "No changes detected in subconverter version or project files. Skipping build."
-        }
-
-        # تنظیم متغیر محیطی FORCE_BUILD برای مراحل بعدی
-        if ($build_needed) {
-          echo "FORCE_BUILD=true" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-        } else {
-          echo "FORCE_BUILD=false" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-        }
-      shell: powershell
-
-    # مرحله: دانلود و استخراج subconverter.exe (فقط اگر نیاز به Build باشد)
     - name: Download and Extract subconverter.exe
-      if: env.FORCE_BUILD == 'true'
       run: |
         if ("${{ env.SUB_ASSET_URL }}" -eq "") {
           Write-Error "Could not find subconverter Windows AMD64 .7z asset URL. (Pattern mismatch)"
           exit 1
         }
+        # دانلود فایل .7z
         Invoke-WebRequest -Uri "${{ env.SUB_ASSET_URL }}" -OutFile "subconverter_release.7z"
+        
+        # برای استخراج فایل .7z نیاز به 7-Zip دارید.
+        # GitHub Actions runnerها معمولاً 7-Zip را از قبل نصب دارند.
+        # از دستور 7z برای استخراج استفاده می‌کنیم.
         & "C:\Program Files\7-Zip\7z.exe" x "subconverter_release.7z" -o*
         
+        # پیدا کردن فایل subconverter.exe پس از استخراج
+        # ممکن است در یک پوشه فرعی باشد، پس به صورت بازگشتی جستجو می‌کنیم
         $subconverterExe = Get-ChildItem -Path . -Recurse -Filter "subconverter.exe" | Select-Object -First 1
         
         if ($subconverterExe) {
+          # اگر فایل اجرایی در روت نبود، آن را به روت منتقل می‌کنیم
           if ($subconverterExe.DirectoryName -ne (Get-Location).Path) {
             Move-Item -Path $subconverterExe.FullName -Destination "subconverter.exe" -Force
           }
@@ -129,49 +60,38 @@ jobs:
           Write-Error "subconverter.exe not found after extracting .7z archive. Please check the archive content."
           exit 1
         }
+        
+        # حذف فایل .7z دانلود شده و هر پوشه استخراج شده
         Remove-Item -Force "subconverter_release.7z"
         Get-ChildItem -Path . -Directory -Filter "subconverter-windows-amd64-*" | Remove-Item -Recurse -Force
       shell: powershell
 
-    # مرحله: نصب وابستگی‌های پروژه (فقط اگر نیاز به Build باشد)
     - name: Install dependencies
-      if: env.FORCE_BUILD == 'true'
       run: npm install
 
-    # مرحله: Build برنامه Electron برای ویندوز (فقط اگر نیاز به Build باشد)
     - name: Build Electron application for Windows
-      if: env.FORCE_BUILD == 'true'
       run: npm run build
 
-    # مرحله: ایجاد Release در GitHub (فقط اگر نیاز به Build باشد)
     - name: Create Release
       id: create_release
-      if: env.FORCE_BUILD == 'true'
       uses: actions/create-release@v1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-        # نام تگ Release شامل نسخه subconverter و SHA Commit فعلی (برای شناسایی تغییرات فایل)
-        # این باعث می‌شود تگ هر بار که Build انجام شود (چه به خاطر subconverter چه فایل‌ها) منحصر به فرد باشد.
-        tag_name: subconverter-desktop-${{ env.LATEST_SUB_TAG }}-${{ github.sha }}
-        # نام Release قابل مشاهده
-        release_name: Subconverter Desktop with ${{ env.LATEST_SUB_TAG }} (Changes: ${{ github.sha }})
+        tag_name: subconverter-desktop-${{ env.LATEST_SUB_TAG }}-${{ github.run_number }}
+        release_name: Subconverter Desktop with ${{ env.LATEST_SUB_TAG }} (Build ${{ github.run_number }})
         body: |
-          این یک بیلد خودکار از برنامه دسکتاپ Subconverter است.
-          **نسخه موتور Subconverter:** ${{ env.LATEST_SUB_TAG }}
-          **Commit ID پروژه:** ${{ github.sha }}
-          این Release در صورت به‌روزرسانی موتور Subconverter یا تغییر فایل‌های پروژه، به‌روزرسانی می‌شود.
+          این یک بیلد خودکار از برنامه دسکتاپ Subconverter است که شامل موتور تبدیل Subconverter نسخه ${{ env.LATEST_SUB_TAG }} می‌باشد.
+          این Release هر سه روز یک بار به‌روزرسانی می‌شود.
         draft: false
         prerelease: false
 
-    # مرحله: آپلود فایل ZIP برنامه به Release (فقط اگر نیاز به Build باشد)
     - name: Upload Release Asset
-      if: env.FORCE_BUILD == 'true'
       uses: actions/upload-release-asset@v1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         upload_url: ${{ steps.create_release.outputs.upload_url }}
         asset_path: ./dist/Subconverter Desktop-1.0.0-win.zip
-        asset_name: Subconverter_Desktop_Win-${{ env.LATEST_SUB_TAG }}-${{ github.sha }}.zip
+        asset_name: Subconverter_Desktop_Win-${{ env.LATEST_SUB_TAG }}.zip
         asset_content_type: application/zip
