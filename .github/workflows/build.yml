@@ -3,23 +3,23 @@ name: Build and Release Subconverter Desktop
 
 on:
   schedule:
-    - cron: '0 0 */3 * *'       # هر 3 روز یکبار نیمه‌شب (UTC)
-  workflow_dispatch:           # قابلیت اجرای دستی
+    - cron: '0 0 */3 * *'       # هر 3 روز یکبار نیمه‌شب UTC
+  workflow_dispatch:
   push:
     tags:
-      - 'v*.*.*'               # هنگام پوش تگ‌های نسخه مانند v0.9.1
+      - 'v*.*.*'               # روی تگ‌های نسخه مانند v0.9.1
 
 jobs:
   build-windows:
     runs-on: windows-latest
 
     steps:
-    - name: Checkout code
+    - name: دریافت کد پروژه
       uses: actions/checkout@v4
       with:
         fetch-depth: 0
 
-    - name: Setup Node.js
+    - name: راه‌اندازی Node.js نسخه 20
       uses: actions/setup-node@v4
       with:
         node-version: '20'
@@ -29,55 +29,49 @@ jobs:
       shell: powershell
       run: |
         Write-Host "دریافت اطلاعات آخرین نسخه Subconverter..."
-        $response = Invoke-RestMethod -Uri "https://api.github.com/repos/metacubex/subconverter/releases/latest" -Headers @{Authorization = "token $env:GITHUB_TOKEN"}
-        $latest_sub_tag = $response.tag_name
-        $asset_url = $response.assets | Where-Object { $_.name -like "subconverter_win64*.7z" } | Select-Object -ExpandProperty browser_download_url
-        Write-Host "نسخه آخر Subconverter: $latest_sub_tag"
-        Write-Host "آدرس دانلود: $asset_url"
-        echo "LATEST_SUB_TAG=$latest_sub_tag" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-        echo "SUB_ASSET_URL=$asset_url" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+        $response = Invoke-RestMethod -Uri "https://api.github.com/repos/metacubex/subconverter/releases/latest" -Headers @{ Authorization = "token $env:GITHUB_TOKEN" }
+        $env:LATEST_SUB_TAG = $response.tag_name
+        $env:SUB_ASSET_URL = ($response.assets | Where-Object { $_.name -like 'subconverter_win64*.7z' } | Select-Object -ExpandProperty browser_download_url)
+        Write-Host "نسخه آخر Subconverter: $env:LATEST_SUB_TAG"
+        Write-Host "آدرس دانلود: $env:SUB_ASSET_URL"
 
     - name: بررسی نیاز به ساخت (Build)
       id: build_decision
       shell: powershell
       run: |
         Write-Host "بررسی نیاز به بیلد جدید..."
-        $latest_sub_tag = "${{ env.LATEST_SUB_TAG }}"
-        $current_repo_commit_sha = "${{ github.sha }}"
+        $latest_sub_tag = $env:LATEST_SUB_TAG
+        $current_repo_commit_sha = $env:GITHUB_SHA
 
-        $current_release_tag = ""
-        $last_release_commit_sha = ""
-        $current_sub_version_in_release = ""
+        $current_release_tag = ''
+        $last_release_commit_sha = ''
+        $current_sub_version_in_release = ''
 
         try {
-          $repo_release_response = Invoke-RestMethod -Uri "https://api.github.com/repos/${{ github.repository }}/releases/latest" -Headers @{Authorization = "token $env:GITHUB_TOKEN"}
-          $current_release_tag = $repo_release_response.tag_name
+          $repo = "$env:GITHUB_REPOSITORY"
+          $r = Invoke-RestMethod -Uri "https://api.github.com/repos/$repo/releases/latest" -Headers @{ Authorization = "token $env:GITHUB_TOKEN" }
+          $current_release_tag = $r.tag_name
           if ($current_release_tag -match 'subconverter-desktop-(v\d+\.\d+\.\d+)-[0-9a-fA-F]+') {
             $current_sub_version_in_release = $Matches[1]
           }
-          $tag_ref_response = Invoke-RestMethod -Uri "https://api.github.com/repos/${{ github.repository }}/git/ref/tags/$current_release_tag" -Headers @{Authorization = "token $env:GITHUB_TOKEN"}
-          $last_release_commit_sha = $tag_ref_response.object.sha
+          $ref = Invoke-RestMethod -Uri "https://api.github.com/repos/$repo/git/ref/tags/$current_release_tag" -Headers @{ Authorization = "token $env:GITHUB_TOKEN" }
+          $last_release_commit_sha = $ref.object.sha
           Write-Host "آخرین ریلیز: $current_release_tag با کامیت $last_release_commit_sha"
-        }
-        catch {
+        } catch {
           Write-Host "هیچ ریلیز قبلی یافت نشد یا خطا در دریافت اطلاعات."
         }
 
         $build_needed = $false
-
         if (-not $current_release_tag) {
           Write-Host "ساخت نسخه اولیه (ریلیز قبلی یافت نشد)."
           $build_needed = $true
-        }
-        elseif ($latest_sub_tag -ne $current_sub_version_in_release) {
+        } elseif ($latest_sub_tag -ne $current_sub_version_in_release) {
           Write-Host "نسخه موتور تغییر کرده: $current_sub_version_in_release -> $latest_sub_tag"
           $build_needed = $true
-        }
-        elseif ($current_repo_commit_sha -ne $last_release_commit_sha) {
+        } elseif ($current_repo_commit_sha -ne $last_release_commit_sha) {
           Write-Host "فایل‌های پروژه تغییر کرده‌اند: $last_release_commit_sha -> $current_repo_commit_sha"
           $build_needed = $true
-        }
-        else {
+        } else {
           Write-Host "هیچ تغییری یافت نشد. ساخت انجام نمی‌شود."
         }
 
@@ -87,29 +81,20 @@ jobs:
       if: env.FORCE_BUILD == 'true'
       shell: powershell
       run: |
-        if ("${{ env.SUB_ASSET_URL }}" -eq "") {
-          Write-Error "آدرس دانلود فایل subconverter یافت نشد."
-          exit 1
-        }
-        Write-Host "دانلود فایل از ${{ env.SUB_ASSET_URL }}"
-        Invoke-WebRequest -Uri "${{ env.SUB_ASSET_URL }}" -OutFile "subconverter_release.7z"
+        Write-Host "دانلود فایل Subconverter..."
+        Invoke-WebRequest -Uri "$env:SUB_ASSET_URL" -OutFile "subconverter_release.7z"
         Write-Host "استخراج فایل..."
         & "C:\Program Files\7-Zip\7z.exe" x "subconverter_release.7z" -o*
-        $subconverterExe = Get-ChildItem -Path . -Recurse -Filter "subconverter.exe" | Select-Object -First 1
-        if ($subconverterExe) {
-          if ($subconverterExe.DirectoryName -ne (Get-Location).Path) {
-            Move-Item -Path $subconverterExe.FullName -Destination "subconverter.exe" -Force
-            Write-Host "فایل subconverter.exe به مسیر اصلی منتقل شد."
-          } else {
-            Write-Host "فایل subconverter.exe در مسیر اصلی موجود است."
-          }
-        }
-        else {
-          Write-Error "فایل subconverter.exe پس از استخراج یافت نشد."
+        $exe = Get-ChildItem -Recurse -Filter "subconverter.exe" | Select-Object -First 1
+        if ($exe) {
+          Move-Item -Path $exe.FullName -Destination "subconverter.exe" -Force
+          Write-Host "فایل subconverter.exe منتقل شد."
+        } else {
+          Write-Error "فایل subconverter.exe یافت نشد."
           exit 1
         }
         Remove-Item -Force "subconverter_release.7z"
-        Get-ChildItem -Path . -Directory -Filter "subconverter-windows-amd64-*" | Remove-Item -Recurse -Force
+        Get-ChildItem -Directory -Filter "subconverter-windows-amd64-*" | Remove-Item -Recurse -Force
 
     - name: نصب وابستگی‌ها
       if: env.FORCE_BUILD == 'true'
@@ -119,7 +104,31 @@ jobs:
       if: env.FORCE_BUILD == 'true'
       run: npm run build
 
-    - name: ساخت ریلیز در گیت‌هاب
+    - name: نمایش محتوای پوشه dist قبل از آپلود
+      if: env.FORCE_BUILD == 'true'
+      shell: powershell
+      run: |
+        Write-Host "محتوای پوشه ./dist:"
+        if (Test-Path "./dist") {
+          Get-ChildItem -Path ./dist | ForEach-Object { Write-Host " - $($_.Name)" }
+        } else {
+          Write-Error "پوشه ./dist یافت نشد."
+          exit 1
+        }
+
+    - name: بررسی وجود فایل زیپ خروجی
+      if: env.FORCE_BUILD == 'true'
+      shell: powershell
+      run: |
+        $path = "./dist/Subconverter Desktop-$env:LATEST_SUB_TAG-win.zip"
+        if (Test-Path $path) {
+          Write-Host "فایل خروجی یافت شد: $path"
+        } else {
+          Write-Error "فایل خروجی در $path یافت نشد."
+          exit 1
+        }
+
+    - name: ایجاد Release در گیت‌هاب
       id: create_release
       if: env.FORCE_BUILD == 'true'
       uses: actions/create-release@v1
@@ -127,39 +136,19 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         tag_name: subconverter-desktop-${{ env.LATEST_SUB_TAG }}-${{ github.sha }}
-        release_name: "Subconverter Desktop با نسخه ${{ env.LATEST_SUB_TAG }} (کد: ${{ github.sha }})"
+        release_name: "Subconverter Desktop نسخه ${{ env.LATEST_SUB_TAG }}"
         body: |
-          ساخت خودکار Subconverter Desktop.
-          **نسخه Subconverter:** ${{ env.LATEST_SUB_TAG }}
-          **شناسه کامیت پروژه:** ${{ github.sha }}
-          این ریلیز هنگام تغییر نسخه موتور یا فایل‌های پروژه ساخته می‌شود.
+          ساخت خودکار Subconverter Desktop
+          **نسخه:** ${{ env.LATEST_SUB_TAG }}
+          **کامیت:** ${{ github.sha }}
         draft: false
         prerelease: false
 
-    - name: نمایش محتوای پوشه dist قبل از آپلود
-      if: env.FORCE_BUILD == 'true'
-      run: |
-        echo "محتوای پوشه ./dist:"
-        ls -lh ./dist || echo "پوشه ./dist موجود نیست."
-
-    - name: بررسی وجود فایل زیپ خروجی
-      if: env.FORCE_BUILD == 'true'
-      run: |
-        ASSET_PATH="./dist/Subconverter Desktop-1.0.0-win.zip"
-        if [ -f "$ASSET_PATH" ]; then
-          echo "فایل خروجی پیدا شد: $ASSET_PATH"
-        else
-          echo "خطا: فایل خروجی در مسیر $ASSET_PATH پیدا نشد."
-          exit 1
-        fi
-
-    - name: آپلود فایل ZIP به ریلیز
+    - name: آپلود فایل ZIP خروجی به ریلیز
       if: env.FORCE_BUILD == 'true'
       uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: ./dist/Subconverter\ Desktop-1.0.0-win.zip
+        asset_path: ./dist/Subconverter\ Desktop-${{ env.LATEST_SUB_TAG }}-win.zip
         asset_name: Subconverter_Desktop_Win-${{ env.LATEST_SUB_TAG }}-${{ github.sha }}.zip
         asset_content_type: application/zip
