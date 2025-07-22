@@ -175,3 +175,4 @@ jobs:
         asset_path: ./dist/Subconverter Desktop-1.0.0-win.zip
         asset_name: Subconverter_Desktop_Win-${{ env.LATEST_SUB_TAG }}-${{ github.sha }}.zip
         asset_content_type: application/zip
+
