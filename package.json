@@ -2,13 +2,13 @@
   "name": "subconverter-desktop",
   "version": "1.0.0",
   "description": "A local desktop application for Subconverter",
-  "main": "main.js",
+  "main": "build/main.js",
   "private": true,
   "scripts": {
     "start": "electron .",
     "react-start": "react-scripts start",
     "react-build": "react-scripts build",
-    "build": "npm run react-build && electron-builder",
+    "build": "npm run react-build && node scripts/copy-electron-main.js && electron-builder",
     "postinstall": "electron-builder install-app-deps"
   },
   "keywords": [],
@@ -46,7 +46,7 @@
     },
     "files": [
       "build/**/*",
-      "main.js",
+      "!build/main.js",
       "preload.js",
       "node_modules/**/*"
     ],
