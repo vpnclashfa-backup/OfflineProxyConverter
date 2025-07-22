@@ -157,8 +157,9 @@ jobs:
         # نام Release قابل مشاهده
         release_name: Subconverter Desktop with ${{ env.LATEST_SUB_TAG }} (Changes: ${{ github.sha }})
         # توضیحات Release
-        # این بلوک متنی باید با 8 فاصله (6 برای with:, 2 برای body:) شروع شود.
-        body: |
+        # از ">" برای Folded Style استفاده می‌کنیم که کمتر به فاصله‌گذاری حساس است.
+        # محتوا باید با 8 فاصله شروع شود.
+        body: >
           این یک بیلد خودکار از برنامه دسکتاپ Subconverter است.
           **نسخه موتور Subconverter:** ${{ env.LATEST_SUB_TAG }}
           **Commit ID پروژه:** ${{ github.sha }}
