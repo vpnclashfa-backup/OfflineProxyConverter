@@ -156,6 +156,8 @@ jobs:
         tag_name: subconverter-desktop-${{ env.LATEST_SUB_TAG }}-${{ github.sha }}
         # نام Release قابل مشاهده
         release_name: Subconverter Desktop with ${{ env.LATEST_SUB_TAG }} (Changes: ${{ github.sha }})
+        # توضیحات Release
+        # اطمینان حاصل کنید که این بلوک متنی با 10 فاصله (2 برای with:, 2 برای body:, 6 برای محتوا) شروع شود.
         body: |
           این یک بیلد خودکار از برنامه دسکتاپ Subconverter است.
           **نسخه موتور Subconverter:** ${{ env.LATEST_SUB_TAG }}
