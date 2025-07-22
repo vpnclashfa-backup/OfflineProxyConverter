@@ -46,8 +46,8 @@
     },
     "files": [
       "build/**/*",
-      "!build/main.js",
-      "!build/preload.js",
+      "build/main.js",
+      "build/preload.js",
       "node_modules/**/*"
     ],
     "extraFiles": [
