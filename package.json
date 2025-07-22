@@ -18,7 +18,7 @@
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-scripts": "5.0.1",
-    "web-vitals": "^2.1.4"  <-- این خط را اضافه کنید یا مطمئن شوید که وجود دارد
+    "web-vitals": "^2.1.4"
   },
   "devDependencies": {
     "electron": "^31.0.1",
