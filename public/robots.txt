@@ -1,0 +1,6 @@
+# For more information about the robots.txt file, please visit:
+# https://developers.google.com/webmasters/controlcrawl-index/docs/robots.txt
+
+User-agent: *
+Disallow:
+
