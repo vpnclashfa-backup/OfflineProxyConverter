@@ -1,0 +1,27 @@
+/* src/index.css - فایل CSS اصلی */
+
+/* ایمپورت فونت Vazirmatn از Google Fonts */
+/* این خط تضمین می‌کند که فونت در برنامه شما بارگذاری می‌شود. */
+@import url('https://fonts.googleapis.com/css2?family=Vazirmatn:wght@100..900&display=swap');
+
+/* ایمپورت دستورالعمل‌های اصلی Tailwind CSS. */
+/* این‌ها کلاس‌های پایه Tailwind را برای استفاده در پروژه شما فراهم می‌کنند. */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* تنظیم فونت پیش‌فرض برای کل بدنه سند (body). */
+/* این تضمین می‌کند که فونت Vazirmatn در سراسر برنامه React استفاده شود. */
+body {
+  margin: 0;
+  font-family: 'Vazirmatn', sans-serif; /* استفاده از فونت Vazirmatn */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* استایل‌های کد (اختیاری، برای نمایش کد در مرورگر) */
+code {
+  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
+    monospace;
+}
+
